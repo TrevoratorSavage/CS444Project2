@@ -22,6 +22,11 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <fstream>
+#include <iostream>
+
+
+using namespace std;
 
 #define COOKIE_PATH "./browser.cookie"
 
@@ -79,8 +84,17 @@ void read_user_input(char message[]) {
  * The file path of the cookie is stored in COOKIE_PATH.
  */
 void load_cookie() {
-    // TODO
-    session_id = -1;
+
+    ifstream cookie_file(COOKIE_PATH);
+    int cookie;
+
+    if (cookie_file >> cookie) {
+        session_id = cookie;
+    } else {
+        session_id = -1;
+    }
+
+    cookie_file.close();
 }
 
 /**
@@ -88,7 +102,11 @@ void load_cookie() {
  * The file path of the cookie is stored in COOKIE_PATH.
  */
 void save_cookie() {
-    // TODO
+    ofstream cookie_file(COOKIE_PATH);
+
+    cookie_file << session_id;
+
+    cookie_file.close();
 }
 
 /**

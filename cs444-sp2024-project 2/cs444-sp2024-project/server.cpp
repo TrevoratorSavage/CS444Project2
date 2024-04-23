@@ -23,6 +23,11 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+
+using namespace std;
 
 #define NUM_VARIABLES 26
 #define NUM_SESSIONS 128
@@ -238,9 +243,27 @@ void get_session_file_path(int session_id, char path[]) {
  * Loads every session from the disk one by one if it exists.
  * Use get_session_file_path() to get the file path for each session.
  */
-void load_all_sessions() {
-    // TODO
+void load_all_sessions()
+{
+    for (auto file : filesystem::directory_iterator(DATA_DIR))
+    {
+        string session_number = file.path().filename();
+        session_number = session_number.substr(7);
+        session_number = session_number.substr(0, session_number.length() - 4);
+        ifstream sessionFile(file.path());
+        
+        char var_name;
+        double var_val;
+
+        while (sessionFile >> var_name >> var_val)
+        {
+            session_list[stoi(session_number)].variables[(int)(var_name - 'A')] = true;
+            session_list[stoi(session_number)].values[(int)(var_name - 'A')] = var_val;
+        }
+        sessionFile.close();
+    }
 }
+
 
 /**
  * Saves the given sessions to the disk.
@@ -248,8 +271,25 @@ void load_all_sessions() {
  *
  * @param session_id the session ID
  */
-void save_session(int session_id) {
-    // TODO
+void save_session(int session_id)
+{
+    char session_path[26];
+    get_session_file_path(session_id, session_path);
+
+    ofstream session_file(session_path);
+
+    for (int i = 0; i < NUM_SESSIONS; ++i)
+    {
+        for (int j = 0; j < NUM_VARIABLES; ++j)
+        {
+            if (session_list[i].variables[j])
+            {
+                session_file << (char)('A' + j) << session_list[i].values[j] << '\n';
+            }
+        }
+    }
+
+    session_file.close();
 }
 
 /**
