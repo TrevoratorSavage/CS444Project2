@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <fstream>
 #include <iostream>
+#include <thread>
 
 
 using namespace std;
@@ -126,9 +127,11 @@ void register_server() {
  * if the browser is on.
  */
 void server_listener() {
-    char message[BUFFER_LEN];
-    receive_message(server_socket_fd, message);
-    puts(message);
+    while(true){
+        char message[BUFFER_LEN];
+        receive_message(server_socket_fd, message);
+        puts(message);
+    }
 }
 
 /**
@@ -171,9 +174,9 @@ void start_browser(const char host_ip[], int port) {
     // Main loop to read in the user's input and send it out.
     while (browser_on) {
         char message[BUFFER_LEN];
+        thread(server_listener).detach();
         read_user_input(message);
         send_message(server_socket_fd, message);
-        server_listener();
     }
 
     // Closes the socket.

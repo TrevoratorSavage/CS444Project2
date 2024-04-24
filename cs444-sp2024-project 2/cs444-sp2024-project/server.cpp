@@ -26,6 +26,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <thread>
 
 using namespace std;
 
@@ -302,6 +303,8 @@ void save_session(int session_id)
 int register_browser(int browser_socket_fd) {
     int browser_id;
 
+    //locking the browser list to prevent multiple threads from accessing it at the same time
+    pthread_mutex_lock(&browser_list_mutex);
     for (int i = 0; i < NUM_BROWSER; ++i) {
         if (!browser_list[i].in_use) {
             browser_id = i;
@@ -310,6 +313,7 @@ int register_browser(int browser_socket_fd) {
             break;
         }
     }
+    pthread_mutex_unlock(&browser_list_mutex);
 
     char message[BUFFER_LEN];
     receive_message(browser_socket_fd, message);
@@ -427,7 +431,7 @@ void start_server(int port) {
         }
 
         // Starts the handler for the new browser.
-        browser_handler(browser_socket_fd);
+        thread(browser_handler, browser_socket_fd).detach();
     }
 
     // Closes the socket.
