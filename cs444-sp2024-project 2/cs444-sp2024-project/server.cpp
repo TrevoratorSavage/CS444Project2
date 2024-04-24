@@ -6,7 +6,7 @@
  * Created by Daqing Hou, dhou@clarkson.edu                                *
  *            Xinchao Song, xisong@clarkson.edu                            *
  * April 10, 2022                                                          *
- * Copyright © 2022-2024 CS 444/544 Instructor Team. All rights reserved.  *
+ * Copyright Â© 2022-2024 CS 444/544 Instructor Team. All rights reserved.  *
  * Unauthorized use is strictly prohibited.                                *
  ***************************************************************************
  */
@@ -27,6 +27,8 @@
 #include <fstream>
 #include <filesystem>
 #include <thread>
+#include <regex>
+#include <unordered_map>
 
 using namespace std;
 
@@ -49,7 +51,7 @@ typedef struct session_struct {
 } session_t;
 
 static browser_t browser_list[NUM_BROWSER];                             // Stores the information of all browsers.
-static session_t session_list[NUM_SESSIONS];                            // Stores the information of all sessions.
+static unordered_map<int,session_t> session_list;                            // Stores the information of all sessions.
 static pthread_mutex_t browser_list_mutex = PTHREAD_MUTEX_INITIALIZER;  // A mutex lock for the browser list.
 static pthread_mutex_t session_list_mutex = PTHREAD_MUTEX_INITIALIZER;  // A mutex lock for the session list.
 
@@ -159,6 +161,7 @@ bool process_message(int session_id, const char message[]) {
     double first_value;
     char symbol;
     double second_value;
+    regex pattern ("[a-z]"); //regular expression for a single lowercase character
 
     // Makes a copy of the string since strtok() will modify the string that it is processing.
     char data[BUFFER_LEN];
@@ -166,16 +169,33 @@ bool process_message(int session_id, const char message[]) {
 
     // Processes the result variable.
     token = strtok(data, " ");
+    if (token == NULL || !regex_match(token, pattern)){
+        // if result variable is not a single lowercase letter, return false
+        return false;
+    }
     result_idx = token[0] - 'a';
 
     // Processes "=".
     token = strtok(NULL, " ");
+    if (token == NULL || strcmp(token, "=") != 0) {
+        // if '=' not found after result variable, return false
+        return false;
+    }
 
     // Processes the first variable/value.
     token = strtok(NULL, " ");
+    if (token == NULL) {
+        // if variable/value not found, return false
+        return false;
+    }
+    
     if (is_str_numeric(token)) {
         first_value = strtod(token, NULL);
     } else {
+        if (!session_list[session_id].variables[token[0] - 'a']) {
+            // if first variable/value does not already exist, return false
+            return false;
+        }
         int first_idx = token[0] - 'a';
         first_value = session_list[session_id].values[first_idx];
     }
@@ -191,15 +211,28 @@ bool process_message(int session_id, const char message[]) {
 
     // Processes the second variable/value.
     token = strtok(NULL, " ");
-    if (is_str_numeric(token)) {
+    if (token == NULL){
+        // if second variable/value not found, return false
+        return false;
+    }
+
+    if (is_str_numeric(token)) {    
         second_value = strtod(token, NULL);
     } else {
+        if (!session_list[session_id].variables[token[0] - 'a']) {
+            // if first variable/value does not already exist, return false
+            return false;
+        }
         int second_idx = token[0] - 'a';
         second_value = session_list[session_id].values[second_idx];
     }
 
     // No data should be left over thereafter.
     token = strtok(NULL, " ");
+    if (token != NULL) {
+        // if there are more tokens than expected, return false
+        return false;
+    }
 
     session_list[session_id].variables[result_idx] = true;
 
@@ -376,6 +409,7 @@ void browser_handler(int browser_socket_fd) {
         bool data_valid = process_message(session_id, message);
         if (!data_valid) {
             // Send the error message to the browser.
+            broadcast(session_id, "Invalid input!");
             continue;
         }
 
